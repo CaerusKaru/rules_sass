@@ -5,4 +5,5 @@ load("//:defs.bzl", "multi_sass_binary")
 multi_sass_binary(
   name = "demo",
   srcs = glob(["**/*.scss"]),
+  node_modules = "//:node_modules",
 )

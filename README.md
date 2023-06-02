@@ -27,7 +27,7 @@ http_archive(
 )
 
 # Setup Bazel NodeJS rules.
-# See: https://bazelbuild.github.io/rules_nodejs/install.html.
+# See: https://docs.aspect.build/rules/aspect_rules_js#installation.
 
 # Setup repositories which are needed for the Sass rules.
 load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")

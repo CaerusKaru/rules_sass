@@ -1,0 +1,15 @@
+"bazelbuild/rules_sass"
+
+module(
+    name = "io_bazel_rules_sass",
+    compatibility_level = 1,
+    version = "0.0.0",
+)
+
+bazel_dep(name = "aspect_rules_js", version = "1.27.0")
+bazel_dep(name = "bazel_skylib", version = "1.4.1", dev_dependency = True)
+bazel_dep(name = "io_bazel", version = "0.18.0", dev_dependency = True)
+bazel_dep(name = "com_github_bazelbuild_buildtools", version = "0.17.2", dev_dependency = True)
+# bazel_dep(name = "io_bazel_skydoc", version = "0.17.2", dev_dependency = True)
+
+# bazel_dep(name = "gazelle", version = "0.29.0", repo_name = "bazel_gazelle", dev_dependency = True)

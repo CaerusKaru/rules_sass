@@ -9,6 +9,7 @@ sass_binary(
     deps = [
         "//examples/shared",
     ],
+    node_modules = "//:node_modules",
 )
 
 sass_binary(
@@ -19,6 +20,7 @@ sass_binary(
     deps = [
         "//examples/shared",
     ],
+    node_modules = "//:node_modules",
 )
 
 sass_binary(
@@ -30,4 +32,5 @@ sass_binary(
         "//examples/shared:colors",
         "//examples/shared:fonts",
     ],
+    node_modules = "//:node_modules",
 )

@@ -10,4 +10,5 @@ sass_binary(
         "//examples/shared:colors",
         "//examples/shared:fonts",
     ],
+    node_modules = "//:node_modules",
 )

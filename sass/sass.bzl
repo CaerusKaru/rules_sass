@@ -1,4 +1,4 @@
-# Copyright 2018 The Bazel Authors. All rights reserved.
+# Copyright 2023 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 "Compile Sass files to CSS"
+
+load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
+load("@aspect_rules_js//js:defs.bzl", "js_binary")
 
 _ALLOWED_SRC_FILE_EXTENSIONS = [".sass", ".scss", ".css", ".svg", ".png", ".gif", ".cur", ".jpg", ".webp"]
 
@@ -36,6 +39,32 @@ SassInfo = provider(
         "transitive_sources": "Sass sources for this target and its dependencies",
     },
 )
+
+def _default_compiler(name, node_modules, data):
+    sass_wrapper = "_{}_sass_wrapper.js".format(name)
+    copy_file(
+        name = "_{}_copy_sass_wrapper".format(name),
+        src = "@io_bazel_rules_sass//sass/private:sass_wrapper.js",
+        out = sass_wrapper,
+    )
+
+    js_binary(
+       name = name,
+       entry_point = sass_wrapper,
+       data = [
+           sass_wrapper,
+           "{}/@bazel/worker".format(node_modules),
+           "{}/sass".format(node_modules),
+       ] + data,
+       env = {
+           "BAZEL_BINDIR": "$(BINDIR)",
+       },
+       # Opt-in to the patched require() function like google3 has
+       args = [
+           "--nobazel_node_patches",
+           "--bazel_patch_module_resolver",
+       ],
+   )
 
 def _collect_transitive_sources(srcs, deps):
     "Sass compilation requires all transitive .sass source files"
@@ -91,8 +120,8 @@ def _run_sass(ctx, input, css_output, map_output = None):
     elif ctx.attr.sourcemap_embed_sources:
         args.add("--embed-sources")
 
-    # Sources for compilation may exist in the source tree, in bazel-bin, or bazel-genfiles.
-    for prefix in [".", ctx.var["BINDIR"], ctx.var["GENDIR"]]:
+    # Sources for compilation may exist in bazel-bin, or bazel-genfiles.
+    for prefix in [ctx.var["BINDIR"], ctx.var["GENDIR"]]:
         args.add("--load-path=%s/" % prefix)
         for include_path in ctx.attr.include_paths:
             args.add("--load-path=%s/%s" % (prefix, include_path))
@@ -225,18 +254,38 @@ the input name, so use this attribute with caution.""",
     "deps": sass_deps_attr,
     "compiler": attr.label(
         doc = _COMPILER_ATTR_DOC,
-        default = Label("//sass"),
+        default = None,
         executable = True,
         allow_files = True,
         cfg = "host",
     ),
 }
 
-sass_binary = rule(
+_sass_binary = rule(
     implementation = _sass_binary_impl,
     attrs = _sass_binary_attrs,
     outputs = _sass_binary_outputs,
 )
+
+def sass_binary(name,
+                src,
+                deps,
+                node_modules = None,
+                compiler = None,
+                **kwargs):
+
+    if compiler == None:
+        compiler_name = "%s_sass" % name
+        _default_compiler(compiler_name, node_modules, [src])
+        compiler = compiler_name
+
+    _sass_binary(
+        name = name,
+        src = src,
+        deps = deps,
+        compiler = compiler,
+        **kwargs,
+    )
 
 def _multi_sass_binary_impl(ctx):
   """multi_sass_binary accepts a list of sources and compile all in one pass.
@@ -280,7 +329,7 @@ def _multi_sass_binary_impl(ctx):
   if not ctx.attr.sourcemap:
     args.add("--no-source-map")
 
-  args.add(root_dir + ":" + ctx.bin_dir.path + '/' + root_dir)
+  args.add(root_dir + ":" + root_dir)
   args.use_param_file("@%s", use_always = True)
   args.set_param_file_format("multiline")
 
@@ -296,7 +345,7 @@ def _multi_sass_binary_impl(ctx):
 
   return [DefaultInfo(files = depset(outputs))]
 
-multi_sass_binary = rule(
+_multi_sass_binary = rule(
   implementation = _multi_sass_binary_impl,
   attrs = {
     "srcs": attr.label_list(
@@ -319,9 +368,26 @@ multi_sass_binary = rule(
     ),
     "compiler": attr.label(
       doc = _COMPILER_ATTR_DOC,
-      default = Label("//sass"),
+      default = None,
       executable = True,
       cfg = "host",
     ),
   }
 )
+
+def multi_sass_binary(name,
+                      srcs,
+                      node_modules = None,
+                      compiler = None,
+                      **kwargs):
+    if compiler == None:
+        compiler_name = "%s_sass" % name
+        _default_compiler(compiler_name, node_modules, srcs)
+        compiler = compiler_name
+
+    _multi_sass_binary(
+        name = name,
+        srcs = srcs,
+        compiler = compiler,
+        **kwargs,
+    )

@@ -1,4 +1,5 @@
 {
+  "private": true,
   "devDependencies": {
     "@bazel/worker": "5.1.0",
     "sass": "1.62.1"

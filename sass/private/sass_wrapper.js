@@ -13,6 +13,7 @@
 const {debug, runAsWorker, runWorkerLoop} = require('@bazel/worker');
 const sass = require('sass');
 const fs = require('fs');
+const path = require('path');
 
 const args = process.argv.slice(2);
 if (runAsWorker(args)) {
@@ -34,7 +35,7 @@ if (runAsWorker(args)) {
   // Bazel worker protocol expects the only arg to be @<path_to_flagfile>.
   // When we are running a single build, we remove the @ prefix and read the list 
   // of actual arguments line by line.
-  const configFile = args[0].replace(/^@+/, '');
+  const configFile = path.join('..', '..', '..', args[0].replace(/^@+/, ''));
   const configContent = fs.readFileSync(configFile, 'utf8').trim();
   sass.cli_pkg_main_0_(configContent.split('\n'));
 }

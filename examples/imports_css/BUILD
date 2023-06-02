@@ -9,6 +9,7 @@ sass_binary(
     deps = [
         ":other",
     ],
+    node_modules = "//:node_modules",
 )
 
 sass_library(

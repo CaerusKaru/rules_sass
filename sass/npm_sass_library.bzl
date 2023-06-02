@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@build_bazel_rules_nodejs//:providers.bzl", "ExternalNpmPackageInfo")
+load("@aspect_rules_js//npm:providers.bzl", "NpmPackageInfo")
 load("@io_bazel_rules_sass//sass:sass.bzl", "SassInfo")
 
 def _is_sass_file(filename):
@@ -45,11 +45,10 @@ def _npm_sass_library_impl(ctx):
     transitive_sources = []
 
     # Iterate through all specified dependencies and collect Sass files from build
-    # targets that have the `ExternalNpmPackageInfo` provider set. The `yarn_install`
-    # rule automatically sets these providers for individual targets in `@npm//<..>`.
+    # targets that have the `NpmPackageInfo` provider set.
     for dep in ctx.attr.deps:
-        npm_info = dep[ExternalNpmPackageInfo]
-        filered_files = _filter_sass_files(npm_info.sources.to_list())
+        npm_info = dep[NpmPackageInfo]
+        filered_files = _filter_sass_files(npm_info.npm_package_store_deps.to_list())
         transitive_sources.append(depset(filered_files))
 
     # Convert the collected transitive Sass sources to a depset. This is necessary
@@ -73,7 +72,7 @@ npm_sass_library = rule(
         "deps": attr.label_list(
             allow_files = False,
             mandatory = True,
-            providers = [ExternalNpmPackageInfo],
+            providers = [NpmPackageInfo],
             doc = "List of npm package targets for which direct and transitive Sass files are collected."
         ),
     },

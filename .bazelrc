@@ -1,2 +1,6 @@
 # By default, failing tests don't print any output, it goes to the log file
 test --test_output=errors
+build --incompatible_strict_action_env
+build --nolegacy_external_runfiles
+# required for rules_js
+build --enable_runfiles

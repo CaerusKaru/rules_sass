@@ -10,6 +10,7 @@ sass_binary(
     name = "test_fixture",
     src = "test_fixture.scss",
     deps = [":test_pkg_sass_deps"],
+    node_modules = "//:node_modules",
 )
 
 npm_sass_library_test()
