@@ -14,7 +14,9 @@
 "Compile Sass files to CSS"
 
 load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
+load("@aspect_bazel_lib//lib:copy_to_bin.bzl", "copy_files_to_bin_actions")
 load("@aspect_rules_js//js:defs.bzl", "js_binary")
+load("@aspect_rules_js//js:providers.bzl", "JsInfo")
 
 _ALLOWED_SRC_FILE_EXTENSIONS = [".sass", ".scss", ".css", ".svg", ".png", ".gif", ".cur", ".jpg", ".webp"]
 
@@ -40,7 +42,7 @@ SassInfo = provider(
     },
 )
 
-def _default_compiler(name, node_modules, data):
+def _default_compiler(name, node_modules):
     sass_wrapper = "_{}_sass_wrapper.js".format(name)
     copy_file(
         name = "_{}_copy_sass_wrapper".format(name),
@@ -55,7 +57,7 @@ def _default_compiler(name, node_modules, data):
            sass_wrapper,
            "{}/@bazel/worker".format(node_modules),
            "{}/sass".format(node_modules),
-       ] + data,
+       ],
        env = {
            "BAZEL_BINDIR": "$(BINDIR)",
        },
@@ -66,8 +68,11 @@ def _default_compiler(name, node_modules, data):
        ],
    )
 
-def _collect_transitive_sources(srcs, deps):
+def _collect_transitive_sources(ctx, srcs, deps):
     "Sass compilation requires all transitive .sass source files"
+
+    srcs = copy_files_to_bin_actions(ctx, srcs)
+
     return depset(
         srcs,
         transitive = [dep[SassInfo].transitive_sources for dep in deps],
@@ -87,10 +92,12 @@ def _sass_library_impl(ctx):
       The sass_library rule.
     """
     transitive_sources = _collect_transitive_sources(
+        ctx,
         ctx.files.srcs,
         ctx.attr.deps,
     )
     return [
+#        JsInfo(transitive_sources = transitive_sources),
         SassInfo(transitive_sources = transitive_sources),
         DefaultInfo(
             files = transitive_sources,
@@ -120,11 +127,8 @@ def _run_sass(ctx, input, css_output, map_output = None):
     elif ctx.attr.sourcemap_embed_sources:
         args.add("--embed-sources")
 
-    # Sources for compilation may exist in bazel-bin, or bazel-genfiles.
-    for prefix in [ctx.var["BINDIR"], ctx.var["GENDIR"]]:
-        args.add("--load-path=%s/" % prefix)
-        for include_path in ctx.attr.include_paths:
-            args.add("--load-path=%s/%s" % (prefix, include_path))
+    for include_path in ctx.attr.include_paths:
+        args.add("--load-path=%s" % (include_path))
 
     # Last arguments are input and output paths
     # Note that the sourcemap is implicitly written to a path the same as the
@@ -136,7 +140,10 @@ def _run_sass(ctx, input, css_output, map_output = None):
     ctx.actions.run(
         mnemonic = "SassCompiler",
         executable = ctx.executable.compiler,
-        inputs = _collect_transitive_sources([input], ctx.attr.deps),
+        inputs = depset(
+            ctx.files.external_deps,
+            transitive = [_collect_transitive_sources(ctx, [input], ctx.attr.deps)],
+        ),
         tools = [ctx.executable.compiler],
         arguments = [args],
         outputs = [css_output, map_output] if map_output else [css_output],
@@ -218,6 +225,9 @@ _sass_binary_attrs = {
         mandatory = True,
         allow_single_file = _ALLOWED_SRC_FILE_EXTENSIONS,
     ),
+    "external_deps": attr.label_list(
+        doc = "Any externally defined dependencies that Sass needs to compile",
+    ),
     "sourcemap": attr.bool(
         default = True,
         doc = "Whether source maps should be emitted.",
@@ -268,21 +278,17 @@ _sass_binary = rule(
 )
 
 def sass_binary(name,
-                src,
-                deps,
                 node_modules = None,
                 compiler = None,
                 **kwargs):
 
     if compiler == None:
         compiler_name = "%s_sass" % name
-        _default_compiler(compiler_name, node_modules, [src])
+        _default_compiler(compiler_name, node_modules)
         compiler = compiler_name
 
     _sass_binary(
         name = name,
-        src = src,
-        deps = deps,
         compiler = compiler,
         **kwargs,
     )
@@ -376,18 +382,16 @@ _multi_sass_binary = rule(
 )
 
 def multi_sass_binary(name,
-                      srcs,
                       node_modules = None,
                       compiler = None,
                       **kwargs):
     if compiler == None:
         compiler_name = "%s_sass" % name
-        _default_compiler(compiler_name, node_modules, srcs)
+        _default_compiler(compiler_name, node_modules)
         compiler = compiler_name
 
     _multi_sass_binary(
         name = name,
-        srcs = srcs,
         compiler = compiler,
         **kwargs,
     )
